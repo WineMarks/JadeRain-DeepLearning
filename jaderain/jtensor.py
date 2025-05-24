@@ -15,9 +15,6 @@ class JTensor(BaseJTensor):
     def __init__(self, data: list | float, shape: tuple[int, ...] | None = None, require_grad: bool = False) -> None:
         super().__init__(data, shape, require_grad)
 
-    def __getitem__(self, item: int) -> list | float:
-        return self.data[item]
-
     def __str__(self) -> str:
         self.unflatten()
         return "tensor:" + str(self._raw_data)
@@ -68,6 +65,12 @@ class JTensor(BaseJTensor):
         output: JTensor = Sub.apply(self, other)
         return output
 
+    def __rsub__(self, other: Self | float | int) -> Self:
+        if not isinstance(other, JTensor):
+            other = JTensor(data=other)
+        output: JTensor = Sub.apply(other, self)
+        return output
+
     def __isub__(self, other: Self | float | int):
         if not isinstance(other, JTensor):
             other = JTensor(data=other)
@@ -90,8 +93,45 @@ class JTensor(BaseJTensor):
         output: JTensor = Pow.apply(power, self)
         return output
 
+    def __matmul__(self, other):
+        output = MatMul2D.apply(self,other)
+        return output
+
     def __iter__(self):
         return iter(self.data)
+
+    def T(self) -> Self:
+        """
+        :return: 返回矩阵的转置
+        """
+        output = transpose(self)
+        return output
+    def reshape(self, target_shape: tuple[int,...]) -> Self:
+        all_count = 1
+        for shape in self.shape:
+            all_count *= shape
+        target_shape = list(target_shape)
+        neg_count = 0
+        neg_idx = -1
+        for i, shape in enumerate(target_shape):
+            if shape == -1:
+                neg_count+=1
+                neg_idx = i
+                if neg_count > 1:
+                    raise ValueError("不能有多个-1!")
+            else:
+                if all_count % shape ==0:
+                    all_count //= shape
+                else:
+                    raise ValueError("维度数不匹配!")
+
+        if neg_count == 1:
+            target_shape[neg_idx] = all_count
+
+        new_tensor = self.clone()
+        new_tensor.shape = tuple(target_shape)
+        new_tensor.unflatten()
+        return new_tensor
 
     def _init_grad(self, grad: Self | None | float | int = None) -> Self:
         if grad is None:
@@ -131,7 +171,7 @@ class JTensor(BaseJTensor):
             new._grad = new._grad = self._grad.clone(True) if isinstance(self._grad, JTensor) else self._grad
         return new
 
-    def sum(self,dim: int, keepdim :bool = False) -> Self:
+    def sum(self,dim: int, keepdim :bool = False, detach :bool = False) -> Self:
         strides: list[int] = [1]
         shape = list(self.shape)
         shape.reverse()

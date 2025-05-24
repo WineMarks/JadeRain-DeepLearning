@@ -50,7 +50,8 @@ class BaseJTensor:
 
             self.data = flatten(data, 0)
             self.shape = tuple(shape)
-
+    def __getitem__(self, item: int) -> list | float:
+        return self._raw_data[item]
     def unflatten(self) -> None:
         # index从-1开始
         def unflat(index) -> list:
@@ -146,6 +147,7 @@ class BaseJTensor:
                             i._grad = g
                         else:
                             i._grad = i._grad + g
+
 
 class Context:
     def __init__(self):
